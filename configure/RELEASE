@@ -12,7 +12,7 @@ SUPPORT=/corvette/home/epics/devel
 -include $(TOP)/../configure/SUPPORT.$(EPICS_HOST_ARCH)
 
 # Transform record
-CALC=$(SUPPORT)/calc/2-9
+CALC=$(SUPPORT)/calc/3-4
 # If calc was built with sscan, we must link against it
 SSCAN=$(SUPPORT)/sscan/2-8
 
