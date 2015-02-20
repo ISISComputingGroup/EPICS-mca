@@ -29,7 +29,7 @@ SNCSEQ=$(SUPPORT)/seq/2-1-11
 AUTOSAVE=$(SUPPORT)/autosave/R5_4_2
 
 # ASYN - for device/driver support
-ASYN=$(SUPPORT)/asyn/4-22
+ASYN=$(SUPPORT)/asyn/4-26
 
 # MCA - this module
 MCA=$(SUPPORT)/mca/R7-4
