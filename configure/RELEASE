@@ -17,7 +17,7 @@ CALC=$(SUPPORT)/calc/3-4
 SSCAN=$(SUPPORT)/sscan/2-8
 
 # Busy record 
-BUSY=$(SUPPORT)/busy/1-4
+BUSY=$(SUPPORT)/busy/1-6-1
 
 # Scaler record
 STD=$(SUPPORT)/std/R3_1
