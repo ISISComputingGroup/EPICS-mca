@@ -1,45 +1,6 @@
-#RELEASE Location of external products
-# Run "gnumake clean uninstall install" in the application
-# top directory each time this file is changed.
+include $(TOP)/../../../configure/MASTER_RELEASE
 
-TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
-
-# If you don't want to install into $(TOP) then
-# define INSTALL_LOCATION_APP here
-#INSTALL_LOCATION_APP=<fullpathname>
-
-SUPPORT=/corvette/home/epics/devel
--include $(TOP)/../configure/SUPPORT.$(EPICS_HOST_ARCH)
-
-# Transform record
-CALC=$(SUPPORT)/calc/3-4
-# If calc was built with sscan, we must link against it
-SSCAN=$(SUPPORT)/sscan/2-8
-
-# Busy record 
-BUSY=$(SUPPORT)/busy/1-6-1
-
-# Scaler record
-STD=$(SUPPORT)/std/R3_1
-
-# SISSrc uses the sequencer
-SNCSEQ=$(SUPPORT)/seq/2-1-11
-
-# save_restore
-AUTOSAVE=$(SUPPORT)/autosave/R5_6_1
-
-# ASYN - for device/driver support
-ASYN=$(SUPPORT)/asyn/4-26
-
-# MCA - this module
-MCA=$(SUPPORT)/mca/R7-4
-
-# EPICS_BASE usually appears last so other apps can override stuff:
-EPICS_BASE=/corvette/usr/local/epics/base-3.14.12.3
--include $(TOP)/../configure/EPICS_BASE.$(EPICS_HOST_ARCH)
-
-#Capfast users may need the following definitions
-#CAPFAST_TEMPLATES=
-#SCH2EDIF_PATH=
+# overrdie module definitions here
+-include $(TOP)/configure/RELEASE.private
 
 include $(TOP)/../../../ISIS_CONFIG.$(EPICS_HOST_ARCH)
