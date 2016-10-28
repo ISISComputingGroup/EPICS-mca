@@ -188,7 +188,7 @@ record(ao, "$(P)$(R)PresetReal")
    field(PREC, "3")
 }
 
-record(ai, "$(P)$(R)PresetLive_RBV")
+record(ai, "$(P)$(R)PresetReal_RBV")
 {
    field(PINI, "1")
    field(DTYP, "asynFloat64")
