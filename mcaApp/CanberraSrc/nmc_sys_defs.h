@@ -29,6 +29,7 @@
 #include <epicsEvent.h>
 #include <epicsThread.h>
 #include <epicsString.h>
+#include <osiSock.h>
 
 #ifdef USE_SOCKETS
   #include <sys/socket.h>
