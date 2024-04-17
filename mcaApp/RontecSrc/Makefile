@@ -33,7 +33,7 @@ mcaRontecApp_LIBS += mcaRontec
 mcaRontecApp_LIBS += busy
 mcaRontecApp_LIBS += calc sscan autosave
 mcaRontecApp_LIBS += asyn
-mcaRontecApp_SYS_LIBS_cygwin32 += $(CYGWIN_RPC_LIB)
+mcaRontecApp_LIBS += seq pv
 mcaRontecApp_LIBS += $(EPICS_BASE_IOC_LIBS)
 
 mcaRontecApp_SYS_LIBS_solaris += socket
@@ -56,6 +56,7 @@ mcaBrukerQM100App_LIBS += mca
 mcaBrukerQM100App_LIBS += mcaBrukerQM100
 mcaBrukerQM100App_LIBS += busy calc sscan autosave
 mcaBrukerQM100App_LIBS += asyn
+mcaBrukerQM100App_LIBS += seq pv
 mcaBrukerQM100App_LIBS += $(EPICS_BASE_IOC_LIBS)
 
 _SYS_LIBS_solaris += socket

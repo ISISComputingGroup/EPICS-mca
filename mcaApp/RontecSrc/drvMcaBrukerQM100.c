@@ -27,8 +27,8 @@
 #include "mca.h"
 #include "drvMca.h"
 
-#include <WTypes.h>
-#include <WinBase.h>
+#include <wtypes.h>
+#include <winbase.h>
 #include <epicsExport.h>
 
 
@@ -419,7 +419,7 @@ static asynStatus BrukerQM100Write(void *drvPvt, asynUser *pasynUser,
             break;
         case mcaPresetCounts:
             /* set preset counts */
-            pPvt->ptotal = ivalue;
+            pPvt->ptotal = (int)dvalue;
             break;
         default:
             asynPrint(pasynUser, ASYN_TRACE_ERROR, 

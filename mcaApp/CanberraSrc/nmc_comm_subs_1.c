@@ -105,17 +105,20 @@
 #ifdef USE_WINPCAP
   #ifdef _WIN32
     #include "Packet32.h"
-    #include "ntddndis.h"
-  #else
-    /* We would like to include these files on Cygwin too, but that generates problems with syntax conflicts 
-     * so we cheat and define a few things here.  This is all for using the function to get the MAC address
-     * so maybe we can find a cleaner way to do this. */
-    typedef void* LPADAPTER;
-    typedef void* PPACKET_OID_DATA;
-    LPADAPTER *PacketOpenAdapter(char *AdapterName);
-    int PacketRequest(LPADAPTER AdapterObject, int Set, void *OidData);
-    #define OID_802_3_PERMANENT_ADDRESS   0x01010101
+    #if defined(__MINGW32__) || defined(__MINGW64__)
+      #include "ddk/ntddndis.h"
+    #else
+      #include "ntddndis.h"
+    #endif
   #endif
+#endif
+
+/* PCAP timeout in ms */
+/* On Windows we can use -1, but on Linux that leads to 100% CPU utilization */
+#if defined(_WIN32)
+  #define PCAP_TIMEOUT -1
+#else
+  #define PCAP_TIMEOUT 0
 #endif
 
 struct nmc_module_info_struct *nmc_module_info; /* Keeps info on modules */
@@ -327,7 +330,7 @@ found:
     /* If we are not using sockets then we must be using pcap */
     errbuf[0]='\0';
     if (aimDebug > 4) errlogPrintf("(nmcEtherCapture): calling pcap_open_live, device=%s \n", device);
-    i->pcap = pcap_open_live(device, NMC_K_CAPTURESIZE,0,-1,errbuf);
+    i->pcap = pcap_open_live(device, NMC_K_CAPTURESIZE, 0, PCAP_TIMEOUT, errbuf);
     if (errbuf[0]) {
         printf("nmcEthCapture: pcap_open_live: %s\n",errbuf);   
     }
@@ -368,6 +371,21 @@ found:
     }
 
 
+#ifdef BIOCIMMEDIATE
+    /*
+     * When libpcap uses BPF we must enable "immediate mode" to
+     * receive frames right away; otherwise the system may
+     * buffer them for us.
+     */
+    {
+        unsigned int on = 1;
+        if (ioctl(pcap_fileno(i->pcap), BIOCIMMEDIATE, &on) < 0) {
+            printf("nmc_initialize: cannot enable immediate mode on interface %s: %s\n",
+                   device, strerror(errno));
+        }
+    }
+#endif /* BIOCIMMEDIATE */
+
     if( pcap_compile(i->pcap,&bpfprog,bpfstr,0,netp) == -1){ 
         printf("nmcEthCapture: pcap_compile: %s \n",pcap_geterr(i->pcap)); 
         return ERROR;
@@ -392,7 +410,7 @@ found:
                libnet_geterror(i->pIf->libnet));
         return ERROR;
     }
-    if ((i->pIf->hw_address = (struct ether_addr *)libnet_get_hwaddr( i->pIf->libnet)) == NULL) {
+    if ((i->pIf->hw_address = libnet_get_hwaddr( i->pIf->libnet)) == NULL) {
         printf("Unable to detemine MAC-Address, error=%s\n",
                libnet_geterror(i->pIf->libnet));
         return ERROR;
@@ -414,7 +432,7 @@ found:
     memcpy(&i->response_snap[3], &pid, 2);  /* Copy the first word of the process ID */
     i->response_snap[4] &= 0x7f;  /* clear msbit so response and status differ */
 
-    if (aimDebug > 0) errlogPrintf("(nmc_initialize): response SNAP: %2x %2x %2x %2x %2x\n",
+    if (aimDebug > 0) errlogPrintf("(nmc_initialize): response SNAP: %2.2x %2.2x %2.2x %2.2x %2.2x\n",
     i->response_snap[0],i->response_snap[1],i->response_snap[2],
     i->response_snap[3],i->response_snap[4]);
 
@@ -425,7 +443,7 @@ found:
     COPY_SNAP(i->response_snap, i->status_snap);
     i->status_snap[4] |= 0x80;
 
-    if (aimDebug > 0) errlogPrintf("(nmc_initialize): status SNAP: %2x %2x %2x %2x %2x\n",
+    if (aimDebug > 0) errlogPrintf("(nmc_initialize): status SNAP: %2.2x %2.2x %2.2x %2.2x %2.2x\n",
     i->status_snap[0],i->status_snap[1],i->status_snap[2],
     i->status_snap[3],i->status_snap[4]);
 
@@ -441,7 +459,7 @@ found:
     i->header_size = sizeof(struct enet_header) + sizeof(struct snap_header);
 #endif
 
-    if (aimDebug > 0) errlogPrintf("(nmc_initialize): MAC=%2x:%2x:%2x:%2x:%2x:%2x\n", 
+    if (aimDebug > 0) errlogPrintf("(nmc_initialize): MAC=%2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n", 
         i->sys_address[0],
         i->sys_address[1],
         i->sys_address[2],
@@ -657,7 +675,7 @@ void nmcEtherGrab(unsigned char* usrdata, const struct pcap_pkthdr* pkthdr, cons
     /* If the packet has the statusSNAP ID then write the message to the statusQ */
     if (COMPARE_SNAP(s->snap_id, net->status_snap)) {
         if (epicsMessageQueueSend(net->statusQ, (char *)buffer, length) == -1) {
-            nmc_signal("nmcEtherGrab: Status Queue write",errno);  
+            nmc_signal("nmcEtherGrab: Status Queue write failed", -1);  
         }
     }
     /* If the packet has the responseSNAP ID then write the message to the responseQ for this module */
@@ -1225,7 +1243,7 @@ int nmc_sendcmd(int module, int command, void *data, int dsize, void *response,
     /* Note, this code is specific to Ethernet. It will need
      * a little work if other networks are ever supported */
 
-    if (aimDebug > 7) errlogPrintf("(nmc_sendcmd): enter\n");
+    if (aimDebug > 7) errlogPrintf("(nmc_sendcmd): enter module=%d\n", module);
 
     MODULE_INTERLOCK_ON(module);
 
@@ -1288,6 +1306,12 @@ int nmc_sendcmd(int module, int command, void *data, int dsize, void *response,
      * Send the command - try i->max_tries times to get a valid response
      */
     for (tries=0; tries < i->max_tries; tries++) {
+        if (aimDebug > 10) {
+            int i;
+            errlogPrintf("(nmc_sendcmd): calling nmc_putmsg to write %d bytes packet=\n", cmdsize);
+            for (i=0; i<cmdsize; i++) errlogPrintf("%.2x ", ((u_char *)m->out_pkt)[i]);
+            errlogPrintf("\n");
+        }
         if ((s=nmc_putmsg(module, m->out_pkt, cmdsize)) == ERROR) goto done;
 
         /*
@@ -1325,6 +1349,12 @@ int nmc_sendcmd(int module, int command, void *data, int dsize, void *response,
 
         if(*size > rsize) *size = rsize;
         if(*size != 0) memcpy(response, m->in_pkt->ncp_packet_data, *size);
+        if (aimDebug > 10) {
+            int i;
+            errlogPrintf("(nmc_sendcmd): received %d bytes message=\n", *size);
+            for (i=0; i<*size; i++) errlogPrintf("%.2x ", ((u_char *)response)[i]);
+            errlogPrintf("\n");
+        }
         /* Success ! */
         s = OK;
         goto done;
@@ -1476,6 +1506,9 @@ int nmc_get_niaddr(char *device, unsigned char *address)
     COPY_ENET_ADDR(i->pIf->hw_address->ether_addr_octet, i->sys_address); 
     */
     return OK;
+#else
+    printf("nmc_get_niaddr, unknown operating system!!!\n");
+    return ERROR;
 #endif
 }
 
