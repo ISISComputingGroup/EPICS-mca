@@ -1,14 +1,14 @@
 
 file {
-	name="/home/epics/devel/mca/6-11/mcaApp/op/adl/mcaTest.adl"
-	version=030102
+	name="/home/epics/devel/mca-7-6/mcaApp/op/adl/mcaTest.adl"
+	version=030109
 }
 display {
 	object {
 		x=718
 		y=188
 		width=330
-		height=120
+		height=145
 	}
 	clr=14
 	bclr=4
@@ -134,6 +134,11 @@ display {
 		name="mcaStdRecords.adl"
 		args="P=mcaTest:, R=aim_adc1"
 	}
+	display[8] {
+		label="DSA-2000 HVPS"
+		name="DSA2000_HVPS.adl"
+		args="P=mcaTest:, HVPS=hvps1:"
+	}
 	clr=14
 	bclr=4
 }
@@ -141,7 +146,7 @@ text {
 	object {
 		x=77
 		y=60
-		width=114
+		width=240
 		height=20
 	}
 	"basic attribute" {
@@ -198,7 +203,7 @@ text {
 	object {
 		x=77
 		y=85
-		width=114
+		width=220
 		height=20
 	}
 	"basic attribute" {
@@ -206,4 +211,37 @@ text {
 		width=2
 	}
 	textix="Rontec MCA electronics"
+}
+"related display" {
+	object {
+		x=11
+		y=110
+		width=61
+		height=20
+	}
+	display[0] {
+		label="Amptek MCA"
+		name="mca.adl"
+		args="P=mcaTest:, M=mca1"
+	}
+	display[1] {
+		label="Amptek Setup"
+		name="Amptek.adl"
+		args="P=mcaTest:, R=Amptek1:, M=mca1"
+	}
+	clr=14
+	bclr=4
+}
+text {
+	object {
+		x=77
+		y=110
+		width=220
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+		width=2
+	}
+	textix="Amptek MCA electronics"
 }

@@ -96,12 +96,17 @@ drvSIS38XX::drvSIS38XX(const char *portName, int maxChans, int maxSignals)
   createParam(SIS38XXCurrentChannelString,          asynParamInt32, &SIS38XXCurrentChannel_);     /* int32, read */
   createParam(SIS38XXAcquireModeString,             asynParamInt32, &SIS38XXAcquireMode_);        /* int32, write */
   createParam(SIS38XXInputModeString,               asynParamInt32, &SIS38XXInputMode_);          /* int32, write */
+  createParam(SIS38XXInputPolarityString,           asynParamInt32, &SIS38XXInputPolarity_);      /* int32, write */
   createParam(SIS38XXOutputModeString,              asynParamInt32, &SIS38XXOutputMode_);         /* int32, write */
   createParam(SIS38XXOutputPolarityString,          asynParamInt32, &SIS38XXOutputPolarity_);     /* int32, write */
   createParam(SIS38XXSoftwareChannelAdvanceString,  asynParamInt32, &SIS38XXSoftwareChannelAdvance_); /* int32, write */
   createParam(SIS38XXCountOnStartString,            asynParamInt32, &SIS38XXCountOnStart_);       /* int32, write */
   createParam(SIS38XXModelString,                   asynParamInt32, &SIS38XXModel_);              /* int32, read */
   createParam(SIS38XXFirmwareString,                asynParamInt32, &SIS38XXFirmware_);           /* int32, read */
+  createParam(SIS38XXLNEOutputStretcherString,      asynParamInt32, &SIS38XXLNEOutputStretcher_); /* int32, write */
+  createParam(SIS38XXLNEOutputPolarityString,       asynParamInt32, &SIS38XXLNEOutputPolarity_);  /* int32, write */
+  createParam(SIS38XXLNEOutputWidthString,        asynParamFloat64, &SIS38XXLNEOutputWidth_);     /* float64, write */
+  createParam(SIS38XXLNEOutputDelayString,        asynParamFloat64, &SIS38XXLNEOutputDelay_);     /* float64, write */
 
   /* Allocate sufficient memory space to hold all of the data collected from the
    * SIS38XX.
@@ -207,7 +212,7 @@ asynStatus drvSIS38XX::writeInt32(asynUser *pasynUser, epicsInt32 value)
   }
     
   else if (command == mcaStopAcquire_) {
-    if (acquireMode_ == ACQUIRE_MODE_SCALER) goto done;
+    if (acquiring_ && (acquireMode_ == ACQUIRE_MODE_SCALER)) goto done;
     /* stop data acquisition */
     if (!acquiring_) {
       // We are not acquiring.
@@ -225,7 +230,7 @@ asynStatus drvSIS38XX::writeInt32(asynUser *pasynUser, epicsInt32 value)
      * a flag that says we have been erased since acquire was
      * last started, so we only do it once.
      */
-    /* If SIS38XX is acquiring, turn if off */
+    /* If SIS38XX is acquiring, turn it off */
     if (acquiring_) {
       if (acquireMode_ == ACQUIRE_MODE_SCALER) goto done;  // Error
       stopMCSAcquire();
@@ -281,6 +286,7 @@ asynStatus drvSIS38XX::writeInt32(asynUser *pasynUser, epicsInt32 value)
       acquiring_ = true;
     } else {
       stopScaler();
+      acquiring_ = false;
     }
     setIntegerParam(scalerDone_, 0);
   }
@@ -299,7 +305,8 @@ asynStatus drvSIS38XX::writeInt32(asynUser *pasynUser, epicsInt32 value)
     setMuxOut();
   }
   
-  else if (command == SIS38XXInputMode_) {
+  else if ((command == SIS38XXInputMode_) ||
+           (command == SIS38XXInputPolarity_)) {
     setInputMode();
   }
   
@@ -308,8 +315,48 @@ asynStatus drvSIS38XX::writeInt32(asynUser *pasynUser, epicsInt32 value)
     setOutputMode();
   }
 
+  else if (command == SIS38XXLNEOutputStretcher_) {
+    setLNEOutputStretcherEnable();
+  }
+    
+  else if (command == SIS38XXLNEOutputPolarity_) {
+    setLNEOutputPolarity();
+  }
+    
   status = asynSuccess;
   done:
+  callParamCallbacks(signal);
+  return status;
+}
+
+
+
+asynStatus drvSIS38XX::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
+{
+  int command=pasynUser->reason;
+  int signal;
+  asynStatus status=asynError;
+  static const char* functionName = "writeFloat64";
+
+  if (!exists_) return asynError;
+  
+  pasynManager->getAddr(pasynUser, &signal);
+  asynPrint(pasynUser, ASYN_TRACE_FLOW, 
+            "%s:%s: entry, command=%d, signal=%d, value=%f\n", 
+            driverName, functionName, command, signal, value);
+  
+  // Set the value in the parameter library
+  setDoubleParam(signal, command, value);
+  
+  if (command == SIS38XXLNEOutputDelay_) {
+    setLNEOutputDelay();
+  }
+    
+  else if (command == SIS38XXLNEOutputWidth_) {
+    setLNEOutputWidth();
+  }
+    
+  status = asynSuccess;
   callParamCallbacks(signal);
   return status;
 }

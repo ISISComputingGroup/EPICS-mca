@@ -92,12 +92,12 @@ drvSIS3820::drvSIS3820(const char *portName, int baseAddress, int interruptVecto
 
   if (status) {
     asynPrint(pasynUserSelf, ASYN_TRACE_ERROR,
-              "%s:%s: %s, Can't register VME address %p\n", 
+              "%s:%s: %s, Can't register VME address 0x%x\n", 
               driverName, functionName, portName, baseAddress);
     return;
   }
   asynPrint(pasynUserSelf, ASYN_TRACE_FLOW, 
-            "%s:%s: Registered VME address: %p to local address: %p size: 0x%X\n", 
+            "%s:%s: Registered VME address: 0x%x to local address: %p size: 0x%X\n", 
             driverName, functionName, baseAddress, registers_, SIS3820_BOARD_SIZE);
 
   /* Call devLib to get the system address that corresponds to the VME
@@ -112,7 +112,7 @@ drvSIS3820::drvSIS3820(const char *portName, int baseAddress, int interruptVecto
 
   if (status) {
     asynPrint(pasynUserSelf, ASYN_TRACE_ERROR,
-              "%s:%s: %s, Can't register FIFO address %p\n", 
+              "%s:%s: %s, Can't register FIFO address 0x%x\n", 
               driverName, functionName, portName, baseAddress + SIS3820_FIFO_BASE);
     return;
   }
@@ -244,6 +244,12 @@ drvSIS3820::drvSIS3820(const char *portName, int baseAddress, int interruptVecto
 
   erase();
 
+  /* Set IRQ method to Release on Acknowledge (ROAK)*/  
+  asynPrint(pasynUserSelf, ASYN_TRACE_FLOW, "%s:%s: irq ROAK = 0x%08x\n", 
+            driverName, functionName, registers_->irq_config_reg);
+
+  registers_->irq_config_reg |= SIS3820_IRQ_ROAK;
+
   /* Enable interrupts in hardware */  
   asynPrint(pasynUserSelf, ASYN_TRACE_FLOW, 
             "%s:%s: irq before enabling interrupts= 0x%08x\n", 
@@ -295,6 +301,10 @@ void drvSIS3820::report(FILE *fp, int details)
     fprintf(fp, "    op_mode_reg                = 0x%x\n",   registers_->op_mode_reg);
     fprintf(fp, "    copy_disable_reg           = 0x%x\n",   registers_->copy_disable_reg);
     fprintf(fp, "    lne_channel_select_reg     = 0x%x\n",   registers_->lne_channel_select_reg);
+    if (firmwareVersion_ >= 0x111) {
+      fprintf(fp, "    lne_output_delay_reg       = 0x%x\n",   registers_->lne_output_delay_reg);
+      fprintf(fp, "    lne_output_width_reg       = 0x%x\n",   registers_->lne_output_width_reg);
+    }
     fprintf(fp, "    preset_channel_select_reg  = 0x%x\n",   registers_->preset_channel_select_reg);
     fprintf(fp, "    mux_out_channel_select_reg = 0x%x\n",   registers_->mux_out_channel_select_reg);
     fprintf(fp, "    count_disable_reg          = 0x%x\n",   registers_->count_disable_reg);
@@ -444,6 +454,8 @@ void drvSIS3820::setAcquireMode(SIS38XXAcquireMode_t acquireMode)
   int prescale;
   int channelAdvanceSource;
   double dwellTime;
+  epicsUInt32 allEnabled = 0xFFFFFFFF;
+  epicsUInt32 disableMask;
   static const char* functionName="setAcquireMode";
 
   acquireMode_ = acquireMode;
@@ -462,6 +474,9 @@ void drvSIS3820::setAcquireMode(SIS38XXAcquireMode_t acquireMode)
   /* Set the operation mode register */
   setOpModeReg();
 
+  if (maxSignals_ < SIS38XX_MAX_SIGNALS) disableMask = allEnabled << maxSignals_;
+  else disableMask = 0;
+
   switch (acquireMode_) {
     case ACQUIRE_MODE_MCS:
       getIntegerParam(mcaNumChannels_, &nChans);
@@ -473,7 +488,7 @@ void drvSIS3820::setAcquireMode(SIS38XXAcquireMode_t acquireMode)
       clearScalerPresets();
       
       /* Disable channel in MCS mode. We enable the first maxSignals_ inputs */
-      registers_->copy_disable_reg = 0xFFFFFFFF << maxSignals_;
+      registers_->copy_disable_reg = disableMask;
       
       /* Set the number of channels to acquire.  
        * We could be resuming acquisition so subtract nextChan_ */
@@ -514,7 +529,7 @@ void drvSIS3820::setAcquireMode(SIS38XXAcquireMode_t acquireMode)
       registers_->lne_channel_select_reg = 0;
 
       /* Disable channel in scaler mode. */
-      registers_->count_disable_reg = 0xFFFFFFFF << maxSignals_;
+      registers_->count_disable_reg = disableMask;
 
       break;
   }
@@ -525,14 +540,24 @@ void drvSIS3820::setAcquireMode(SIS38XXAcquireMode_t acquireMode)
 void drvSIS3820::setOpModeReg()
 {
   int inputMode;
+  int inputPolarity;
   int outputMode;
   int outputPolarity;
   int maxOutputMode;
+  int LNEStretcherEnable;
+  int LNEOutputInverted;
   epicsUInt32 operationRegister = 0;
 
   getIntegerParam(SIS38XXInputMode_, &inputMode);
+  getIntegerParam(SIS38XXInputPolarity_, &inputPolarity);
   getIntegerParam(SIS38XXOutputMode_, &outputMode);
   getIntegerParam(SIS38XXOutputPolarity_, &outputPolarity);
+  if (firmwareVersion_ >= 0x0111) {
+    getIntegerParam(SIS38XXLNEOutputStretcher_, &LNEStretcherEnable);
+    getIntegerParam(SIS38XXLNEOutputPolarity_, &LNEOutputInverted);
+    if (LNEStretcherEnable) operationRegister |=  SIS3820_LNE_STRETCHER_ENABLE;
+    if (LNEOutputInverted)  operationRegister |=  SIS3820_LNE_OUTPUT_INVERT_ENABLE;
+  }
 
   // We hard-code the data format for now, but support for other formats may be added in the future
   operationRegister   |= SIS3820_MCS_DATA_FORMAT_32BIT;
@@ -542,6 +567,7 @@ void drvSIS3820::setOpModeReg()
    * requested by the correct number of bits, and add to the register. */
   if (inputMode < 0 || inputMode > 5) inputMode = 0;
   operationRegister |= (inputMode << SIS3820_INPUT_MODE_SHIFT);
+  if (inputPolarity == INPUT_POLARITY_INVERTED) operationRegister |= SIS3820_CONTROL_INPUTS_INVERT;
 
   /* Check that output mode is in the allowable range. If so, shift the mode
    * requested by the correct number of bits, and add to the register. */
@@ -648,6 +674,37 @@ int drvSIS3820::getMuxOut()
   return registers_->mux_out_channel_select_reg + 1;
 }
 
+void drvSIS3820::setLNEOutputStretcherEnable()
+{
+  setOpModeReg();
+}
+ 
+void drvSIS3820::setLNEOutputPolarity()
+{
+  setOpModeReg();
+}
+ 
+void drvSIS3820::setLNEOutputWidth()
+{
+  double value;
+  epicsUInt32 ivalue;
+  
+  if (firmwareVersion_ < 0x0111) return;
+  getDoubleParam(SIS38XXLNEOutputWidth_, &value);
+  ivalue = epicsUInt32(value * SIS3820_INTERNAL_CLOCK + 0.5) - 1;
+  registers_->lne_output_width_reg = ivalue;
+}
+
+void drvSIS3820::setLNEOutputDelay()
+{
+  double value;
+  epicsUInt32 ivalue;
+  
+  if (firmwareVersion_ < 0x0111) return;
+  getDoubleParam(SIS38XXLNEOutputDelay_, &value);
+  ivalue = epicsUInt32(value * SIS3820_INTERNAL_CLOCK + 0.5);
+  registers_->lne_output_delay_reg = ivalue;
+}
 
 void drvSIS3820::setIrqControlStatusReg()
 {
@@ -805,7 +862,7 @@ void drvSIS3820::readFIFOThread()
               "%s:%s: waiting for readFIFOEvent\n",
               driverName, functionName);
     enableInterrupts();
-    epicsEventWait(readFIFOEventId_);
+    (void)epicsEventWait(readFIFOEventId_);
     asynPrint(pasynUserSelf, ASYN_TRACE_FLOW, 
               "%s:%s: got readFIFOEvent, eventType=%d\n",
               driverName, functionName, eventType_);
@@ -851,7 +908,7 @@ void drvSIS3820::readFIFOThread()
                     driverName, functionName, status, errno, fifoBuffer_, fifoBaseVME_, count);
         } 
         else {
-          epicsEventWait(dmaDoneEventId_);
+          (void)epicsEventWait(dmaDoneEventId_);
           status = sysDmaStatus(dmaId_);
           if (status)
              asynPrint(pasynUserSelf, ASYN_TRACE_ERROR, 

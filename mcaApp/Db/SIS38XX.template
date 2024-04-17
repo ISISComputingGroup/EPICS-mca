@@ -57,14 +57,6 @@ record(bo,"$(P)StopAll") {
   field(VAL,  "1")
 }
 
-record(ao,"$(P)PresetReal") {
-  field(PINI, "YES")
-  field(DTYP, "asynFloat64")
-  field(OUT,  "@asyn($(PORT),0)MCA_PRESET_REAL")
-  field(VAL,  "0.0")
-  field(PREC, "2")
-}
-
 record(bi,"$(P)HardwareAcquiring") {
   field(DTYP, "asynInt32")
   field(INP,  "@asyn($(PORT),0)MCA_ACQUIRING")
@@ -254,6 +246,16 @@ record(mbbo, "$(P)InputMode") {
   field(VAL,  "3")
 }
 
+record(bo, "$(P)InputPolarity") {
+  field(PINI, "YES")
+  field(DESC, "SIS38XX input polarity")
+  field(DTYP, "asynInt32")
+  field(OUT,  "@asyn($(PORT) 0)SIS38XX_INPUT_POLARITY")
+  field(ZNAM, "Normal")
+  field(ONAM, "Inverted")
+}
+
+
 record(mbbo, "$(P)OutputMode") {
   field(PINI, "YES")
   field(DESC, "SIS38XX output mode")
@@ -277,6 +279,40 @@ record(bo, "$(P)OutputPolarity") {
   field(OUT,  "@asyn($(PORT) 0)SIS38XX_OUTPUT_POLARITY")
   field(ZNAM, "Normal")
   field(ONAM, "Inverted")
+}
+
+record(bo, "$(P)LNEStretcherEnable") {
+  field(PINI, "YES")
+  field(DESC, "SIS3820 LNE Stretcher Enable")
+  field(DTYP, "asynInt32")
+  field(OUT,  "@asyn($(PORT) 0)SIS38XX_LNE_OUTPUT_STRETCHER")
+  field(ZNAM, "Disable")
+  field(ONAM, "Enable")
+}
+
+record(bo, "$(P)LNEOutputPolarity") {
+  field(PINI, "YES")
+  field(DESC, "SIS3832 LNE output polarity")
+  field(DTYP, "asynInt32")
+  field(OUT,  "@asyn($(PORT) 0)SIS38XX_LNE_OUTPUT_POLARITY")
+  field(ZNAM, "Normal")
+  field(ONAM, "Inverted")
+}
+
+record(ao, "$(P)LNEOutputWidth") {
+  field(PINI, "YES")
+  field(DESC, "SIS3832 LNE output width")
+  field(DTYP, "asynFloat64")
+  field(OUT,  "@asyn($(PORT) 0)SIS38XX_LNE_OUTPUT_WIDTH")
+  field(PREC, "4")
+}
+
+record(ao, "$(P)LNEOutputDelay") {
+  field(PINI, "YES")
+  field(DESC, "SIS3832 LNE output delay")
+  field(DTYP, "asynFloat64")
+  field(OUT,  "@asyn($(PORT) 0)SIS38XX_LNE_OUTPUT_DELAY")
+  field(PREC, "4")
 }
 
 record(mbbi, "$(P)Model") {

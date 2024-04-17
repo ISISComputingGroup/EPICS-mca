@@ -4,7 +4,7 @@ include $(TOP)/configure/CONFIG
 # Always built mcaSrc, device-independent
 DIRS += mcaSrc
 
-# Support libraries for Canberra under Cygwin
+# Support libraries for Canberra under Windows
 DIRS += CanberraSupport
 
 # Support for Canberra Ethernet acquisition devices
@@ -19,7 +19,12 @@ SISSrc_DEPEND_DIRS = mcaSrc
 DIRS += RontecSrc
 RontecSrc_DEPEND_DIRS = mcaSrc
 
+# Support for Amptek
+DIRS += AmptekSrc
+AmptekSrc_DEPEND_DIRS = mcaSrc
+
 DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard *db*))
 DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard *Db*))
+DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard *op*))
 include $(TOP)/configure/RULES_DIRS
 
